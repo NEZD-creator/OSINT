@@ -162,7 +162,14 @@ export function setupDeepSearch(bot: Bot) {
 
     // 3. Search other sites concurrently via HTML scrape
     report += `🌍 <b>Обычные сайты и платформы:</b>\n`;
-    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/115.0.0.0 Safari/537.36" };
+    const headers = { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    };
 
     const sitePromises = SITES.map(async site => {
        const url = site.url.replace("{}", nickname);
@@ -210,6 +217,12 @@ export function setupDeepSearch(bot: Bot) {
            report += `<i>Не удалось загрузить аватар для генерации ссылок.</i>\n`;
        }
     }
+    
+    // 5. Google Dorks (Advanced OSINT)
+    report += `\n🧠 <b>Продвинутый поиск в Google (Dorks):</b>\n`;
+    report += `└ <a href="https://www.google.com/search?q=%22${nickname}%22+OR+intitle:%22${nickname}%22">Общий поиск по точному совпадению</a>\n`;
+    report += `└ <a href="https://www.google.com/search?q=ext:doc+OR+ext:pdf+OR+ext:txt+%22${nickname}%22">Поиск утекших документов и логов</a>\n`;
+    report += `└ <a href="https://www.google.com/search?q=site:telegra.ph+%22${nickname}%22">Поиск статей на Telegraph</a>\n\n`;
 
     try {
         await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, report + DISCLAIMER_MSG, {
