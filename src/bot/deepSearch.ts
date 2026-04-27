@@ -29,20 +29,20 @@ async function uploadToTelegraphFromUrl(imgUrl: string): Promise<string | null> 
 }
 
 const SITES = [
-  { name: "Reddit", url: "https://www.reddit.com/user/{}" },
-  { name: "YouTube", url: "https://www.youtube.com/@{}" },
-  { name: "VK", url: "https://vk.com/{}" },
-  { name: "Habr", url: "https://habr.com/ru/users/{}/" },
-  { name: "SoundCloud", url: "https://soundcloud.com/{}" },
-  { name: "Steam", url: "https://steamcommunity.com/id/{}" },
-  { name: "Patreon", url: "https://www.patreon.com/{}" },
-  { name: "Twitch", url: "https://www.twitch.tv/{}" },
-  { name: "Dev.to", url: "https://dev.to/{}" },
-  { name: "Medium", url: "https://medium.com/@{}" },
-  { name: "Vimeo", url: "https://vimeo.com/{}" },
-  { name: "Keybase", url: "https://keybase.io/{}" },
-  { name: "Pinterest", url: "https://www.pinterest.com/{}/" },
-  { name: "Pikabu", url: "https://pikabu.ru/@{}" },
+  { name: "Reddit", url: "https://www.reddit.com/user/{}", notFound: ["page not found", "looks like this page", "does not exist"] },
+  { name: "YouTube", url: "https://www.youtube.com/@{}", notFound: ["404 not found", "не найдена", "isn't available", "error 404"] },
+  { name: "VK", url: "https://vk.com/{}", notFound: ["страница не найдена", "page not found"] },
+  { name: "Habr", url: "https://habr.com/ru/users/{}/", notFound: ["пользователь не найден", "404", "error"] },
+  { name: "SoundCloud", url: "https://soundcloud.com/{}", notFound: ["we can't find that user", "not found"] },
+  { name: "Steam", url: "https://steamcommunity.com/id/{}", notFound: ["the specified profile could not be found", "error"] },
+  { name: "Patreon", url: "https://www.patreon.com/{}", notFound: ["404", "not found"] },
+  { name: "Twitch", url: "https://www.twitch.tv/{}", notFound: ["sorry. unless you've got a time machine"] },
+  { name: "Dev.to", url: "https://dev.to/{}", notFound: ["this page does not exist"] },
+  { name: "Medium", url: "https://medium.com/@{}", notFound: ["out of nothing", "404", "error 404", "user not found"] },
+  { name: "Vimeo", url: "https://vimeo.com/{}", notFound: ["page not found", "404"] },
+  { name: "Keybase", url: "https://keybase.io/{}", notFound: ["not found", "doesn't exist"] },
+  { name: "Pinterest", url: "https://www.pinterest.com/{}/", notFound: ["not found", "doesn't exist"] },
+  { name: "Pikabu", url: "https://pikabu.ru/@{}", notFound: ["ошибка 404", "не найдена"] },
 ];
 
 export function setupDeepSearch(bot: Bot) {
@@ -171,11 +171,18 @@ export function setupDeepSearch(bot: Bot) {
           const timeout = setTimeout(() => controller.abort(), 4000);
           const res = await fetch(url, { headers, signal: controller.signal as any });
           clearTimeout(timeout);
+          
           if (res.status === 200) {
              const html = await res.text();
-             const title = cheerio.load(html)("title").text().trim().toLowerCase();
+             const $ = cheerio.load(html);
+             const title = $("title").text().trim().toLowerCase();
+             const bodyShort = $("body").text().toLowerCase().substring(0, 3000);
              
-             if (!["not found", "404", "ошибка", "does not exist", "suspended", "page unavail"].some(m => title.includes(m))) {
+             // Check custom block terms
+             const notFoundMarkers = site.notFound || ["not found", "404", "ошибка"];
+             const isNotFound = notFoundMarkers.some(m => title.includes(m) || bodyShort.includes(m));
+             
+             if (!isNotFound && !res.url.includes("login") && !res.url.includes("error")) {
                 return `🔹 <a href="${url}">${site.name}</a>`;
              }
           }

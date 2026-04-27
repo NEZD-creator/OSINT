@@ -3,6 +3,7 @@ import { setupNickSearch } from "./nickSearch.js";
 import { setupPhoneSearch } from "./phoneSearch.js";
 import { setupPhotoSearch } from "./photoSearch.js";
 import { setupDeepSearch } from "./deepSearch.js";
+import { setupIpSearch } from "./ipSearch.js";
 
 // Uses bot token from user prompt or environment logic
 export async function setupBot() {
@@ -20,7 +21,8 @@ export async function setupBot() {
       `🕵️‍♂️ /deep <никнейм> — Глубокий легальный сбор (Tg, платформы, фото)\n` +
       `👤 /search_nick <никнейм> — поиск по открытым профилям\n` +
       `📱 /search_phone <телефон> — публичная инфо в Telegram\n` +
-      `🖼 /search_photo — обратный поиск по лицу/фото\n\n` +
+      `🖼 /search_photo — обратный поиск по лицу/фото\n` +
+      `🌐 /ip <адрес> — проверка гео-позиции и провайдера по IP\n\n` +
       `⚠️ Бот работает строго в правовом поле (152-ФЗ РФ, GDPR) и использует исключительно открытые источники информации.`;
     await ctx.reply(welcome);
   });
@@ -29,6 +31,7 @@ export async function setupBot() {
   setupPhoneSearch(bot);
   setupPhotoSearch(bot);
   setupDeepSearch(bot);
+  setupIpSearch(bot);
 
   // Error handler
   bot.catch((err) => {
@@ -44,6 +47,7 @@ export async function setupBot() {
     { command: "search_nick", description: "Поиск по никнейму (открытые профили)" },
     { command: "search_phone", description: "Поиск по номеру (Telegram)" },
     { command: "search_photo", description: "Обратный поиск по фото" },
+    { command: "ip", description: "Узнать инфо по IP адресу" }
   ]);
 
   // Use non-blocking start
