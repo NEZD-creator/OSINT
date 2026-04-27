@@ -31,12 +31,18 @@ async function uploadToTelegraphFromUrl(imgUrl: string): Promise<string | null> 
 const SITES = [
   { name: "GitHub", url: "https://github.com/{}" },
   { name: "Reddit", url: "https://www.reddit.com/user/{}" },
+  { name: "YouTube", url: "https://www.youtube.com/@{}" },
   { name: "VK", url: "https://vk.com/{}" },
   { name: "Habr", url: "https://habr.com/ru/users/{}/" },
   { name: "SoundCloud", url: "https://soundcloud.com/{}" },
+  { name: "Steam", url: "https://steamcommunity.com/id/{}" },
   { name: "Patreon", url: "https://www.patreon.com/{}" },
   { name: "Twitch", url: "https://www.twitch.tv/{}" },
-  { name: "Dev.to", url: "https://dev.to/{}" }
+  { name: "Dev.to", url: "https://dev.to/{}" },
+  { name: "Medium", url: "https://medium.com/@{}" },
+  { name: "Vimeo", url: "https://vimeo.com/{}" },
+  { name: "Keybase", url: "https://keybase.io/{}" },
+  { name: "Pinterest", url: "https://www.pinterest.com/{}/" }
 ];
 
 export function setupDeepSearch(bot: Bot) {
@@ -82,8 +88,6 @@ export function setupDeepSearch(bot: Bot) {
                         const filtered = otherNicks.filter(n => n.toLowerCase() !== `@${nickname.toLowerCase()}`);
                         if (filtered.length > 0) {
                             report += `👥 <b>Связанные аккаунты из био:</b> ${filtered.join(", ")}\n`;
-                        } else {
-                            report += `👥 <b>Другие аккаунты:</b> <i>Не указаны</i>\n`;
                         }
                     }
                 }
@@ -101,7 +105,7 @@ export function setupDeepSearch(bot: Bot) {
         console.error("TG scrape failed", e);
     }
 
-    // 2. Search other sites concurrently
+    // 2. Search other sites concurrently and parse deep info if possible
     report += `🌍 <b>Присутствие на других платформах:</b>\n`;
     
     const headers = {
@@ -122,7 +126,31 @@ export function setupDeepSearch(bot: Bot) {
              
              // Soft 404 filtering
              if (!["not found", "404", "ошибка", "does not exist", "suspended"].some(m => title.includes(m))) {
-                return `✅ <a href="${url}">${site.name}</a>`;
+                let siteInfo = `✅ <a href="${url}">${site.name}</a>`;
+                
+                // Deep extraction for specific targets like GitHub
+                if (site.name === "GitHub") {
+                    const ghName = $("span.p-name").text().trim();
+                    const ghBio = $("div.p-note").text().trim();
+                    const ghLoc = $("span.p-label").first().text().trim(); // Rough approx for location
+                    let extra = [];
+                    if (ghName) extra.push(`Имя: ${ghName}`);
+                    if (ghLoc) extra.push(`Локация: ${ghLoc}`);
+                    if (ghBio) extra.push(`О себе: ${ghBio.substring(0, 50)}...`);
+                    if (extra.length > 0) {
+                        siteInfo += `\n    └ 📝 <i>${extra.join(" | ")}</i>`;
+                    }
+                }
+                
+                // Deep extraction for Reddit
+                if (site.name === "Reddit") {
+                    const rdDesc = $("div").filter((i, el) => $(el).text().includes("Karma")).first().text().trim();
+                    if (rdDesc && rdDesc.length < 100) { // arbitrary bound
+                       siteInfo += `\n    └ 📝 <i>Активен, профиль найдено</i>`;
+                    }
+                }
+
+                return siteInfo;
              }
           }
        } catch (e) {}

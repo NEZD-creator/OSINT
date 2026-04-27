@@ -12,16 +12,21 @@ const DISCLAIMER_MSG =
 
 const SITES = [
   { name: "GitHub", url: "https://github.com/{}" },
-  { name: "Telegram", url: "https://t.me/{}" },
   { name: "Reddit", url: "https://www.reddit.com/user/{}" },
+  { name: "YouTube", url: "https://www.youtube.com/@{}" },
+  { name: "Telegram", url: "https://t.me/{}" },
+  { name: "VK", url: "https://vk.com/{}" },
+  { name: "Habr", url: "https://habr.com/ru/users/{}/" },
   { name: "SoundCloud", url: "https://soundcloud.com/{}" },
+  { name: "Steam", url: "https://steamcommunity.com/id/{}" },
   { name: "Vimeo", url: "https://vimeo.com/{}" },
   { name: "Patreon", url: "https://www.patreon.com/{}" },
   { name: "Twitch", url: "https://www.twitch.tv/{}" },
-  { name: "VK", url: "https://vk.com/{}" },
   { name: "Dev.to", url: "https://dev.to/{}" },
   { name: "Behance", url: "https://www.behance.net/{}" },
   { name: "Medium", url: "https://medium.com/@{}" },
+  { name: "Keybase", url: "https://keybase.io/{}" },
+  { name: "Pinterest", url: "https://www.pinterest.com/{}/" }
 ];
 
 export function setupNickSearch(bot: Bot) {
