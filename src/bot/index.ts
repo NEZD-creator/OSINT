@@ -5,10 +5,12 @@ import { setupPhotoSearch } from "./photoSearch.js";
 import { setupDeepSearch } from "./deepSearch.js";
 import { setupIpSearch } from "./ipSearch.js";
 import { setupIpLogger } from "./ipLogger.js";
+import { setupEmailSearch } from "./emailSearch.js";
+import { setupDomainSearch } from "./domainSearch.js";
+import { setupCryptoSearch } from "./cryptoSearch.js";
 
-// Uses bot token from user prompt or environment logic
 export async function setupBot() {
-  const token = process.env.BOT_TOKEN || "8597293888:AAGllUMlZCPYOjcy6BkHJTJLd3cEivVKW08"; // fallback if .env is missing it
+  const token = process.env.BOT_TOKEN || "8597293888:AAGllUMlZCPYOjcy6BkHJTJLd3cEivVKW08"; 
   if (!token) {
     console.warn("BOT_TOKEN is missing. Bot is not starting.");
     return;
@@ -17,16 +19,22 @@ export async function setupBot() {
   const bot = new Bot(token);
 
   bot.command("start", async (ctx) => {
-    const welcome = `Привет! Я OSINT-бот для исследования цифрового следа.\n\n` +
-      `Доступные команды:\n` +
-      `🕵️‍♂️ /deep <никнейм> — Глубокий легальный сбор (Tg, платформы, фото)\n` +
-      `👤 /search_nick <никнейм> — поиск по открытым профилям\n` +
-      `📱 /search_phone <телефон> — публичная инфо в Telegram\n` +
-      `🖼 /search_photo — обратный поиск по лицу/фото\n` +
-      `🌐 /ip <адрес> — проверка гео-позиции и провайдера по IP\n` +
-      `🔗 /iplogger — создать свою ссылку-ловушку для фиксации IP!\n\n` +
-      `⚠️ Бот работает строго в правовом поле (152-ФЗ РФ, GDPR) и использует исключительно открытые источники информации.`;
-    await ctx.reply(welcome);
+    const welcome = `👁 <b>ПРОФЕССИОНАЛЬНЫЙ OSINT ИНСТРУМЕНТ</b> 👁\n\n` +
+      `Главный пульт управления:\n\n` +
+      `👤 <b>СОЦИАЛЬНАЯ РАЗВЕДКА</b>\n` +
+      `├ /deep <никнейм>  — Многопоточный анализ (Все платформы)\n` +
+      `├ /email <адрес>   — Проверка почты (Утечки, базы, dorks)\n` +
+      `├ /phone <номер>   — Теневой анализ номера (Теги, соцсети)\n` +
+      `└ /search_nick     — Быстрый чек ника (Лайт-версия)\n\n` +
+      `🌐 <b>СЕТЬ И АППАРАТУРА</b>\n` +
+      `├ /ip <адрес>      — Геолокация, провайдер, VPN детект\n` +
+      `├ /iplogger        — Создать ловушку (Скрытый сбор данных о девайсе)\n` +
+      `└ /domain <домен>  — Whois, Архивы, Файлы сайта\n\n` +
+      `💰 <b>ФИНАНСЫ И ПОИСК</b>\n` +
+      `├ /crypto <адрес>   — Анализ BTC/ETH транзакций на Даркнет\n` +
+      `└ /search_photo     — Обратный поиск по лицу (FR, веб)\n\n` +
+      `⚠️ <b>Важно:</b> Бот использует огромный арсенал OSINT Dorks и API агрегаторов, предоставляя самую глубокую информацию в открытом доступе.`;
+    await ctx.reply(welcome, { parse_mode: "HTML" });
   });
 
   setupNickSearch(bot);
@@ -35,26 +43,28 @@ export async function setupBot() {
   setupDeepSearch(bot);
   setupIpSearch(bot);
   setupIpLogger(bot);
+  setupEmailSearch(bot);
+  setupDomainSearch(bot);
+  setupCryptoSearch(bot);
 
-  // Error handler
   bot.catch((err) => {
     console.error("Error in bot:", err);
   });
 
   console.log("Starting Telegram Bot (Polling)...");
   
-  // Set bot commands to show up in the menu
   await bot.api.setMyCommands([
-    { command: "start", description: "Запустить / перезапустить бота" },
-    { command: "deep", description: "Глубокий анализ по никнейму" },
-    { command: "search_nick", description: "Поиск по никнейму (открытые профили)" },
-    { command: "search_phone", description: "Поиск по номеру (Telegram)" },
-    { command: "search_photo", description: "Обратный поиск по фото" },
-    { command: "ip", description: "Узнать инфо по IP адресу" },
-    { command: "iplogger", description: "Сгенерировать ссылку-ловушку для IP" }
+    { command: "start", description: "Запустить / Главное меню" },
+    { command: "deep", description: "🔍 Мощный сбор по никнейму" },
+    { command: "phone", description: "📱 Анализ номера телефона" },
+    { command: "email", description: "📧 Поиск по email почте" },
+    { command: "ip", description: "🌐 Пробить IP адрес" },
+    { command: "iplogger", description: "🔗 Создать ссылку-ловушку" },
+    { command: "crypto", description: "💰 Транзакции блокчейна" },
+    { command: "domain", description: "🌍 Анализ домена/сайта" },
+    { command: "search_photo", description: "🖼 Обратный поиск по фото" },
   ]);
 
-  // Use non-blocking start
   bot.start({
     drop_pending_updates: true,
   });
@@ -62,9 +72,7 @@ export async function setupBot() {
   const ownerId = process.env.OWNER_ID;
   if (ownerId && !isNaN(Number(ownerId))) {
     try {
-        await bot.api.sendMessage(ownerId, "✅ Бот успешно запущен!\nВсе OSINT-модули готовы к работе на Node.js платформе.");
-    } catch(e) {
-        console.error("Failed to notify owner", e);
-    }
+        await bot.api.sendMessage(ownerId, "✅ Бот успешно запущен!\nВсе OSINT-модули готовы к работе.");
+    } catch(e) {}
   }
 }

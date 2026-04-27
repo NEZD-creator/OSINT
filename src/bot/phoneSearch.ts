@@ -1,61 +1,45 @@
 import { Bot } from "grammy";
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions";
-
-const WARNING_MSG =
-  "⚠️ Бот использует только открытые источники. Продолжая, вы подтверждаете, что " +
-  "имеете право искать информацию об этом человеке и не нарушаете закон.";
-
-const DISCLAIMER_MSG =
-  "\n\nℹ️ <i>Данные взяты из открытых источников. Если вы владелец данных и " +
-  "хотите удалить информацию, измените настройки приватности в Telegram: " +
-  "Настройки -> Конфиденциальность -> Номер телефона.</i>";
 
 export function setupPhoneSearch(bot: Bot) {
-  bot.command("search_phone", async (ctx) => {
-    const text = ctx.message?.text || "";
-    const args = text.split(/\s+/);
-
+  const handler = async (ctx: any) => {
+    const args = (ctx.message?.text || "").split(/\s+/);
     if (args.length < 2) {
-      await ctx.reply("Использование: `/search_phone +1234567890`", { parse_mode: "Markdown" });
+      await ctx.reply("Для поиска отправьте: `/phone +79998887766`", { parse_mode: "Markdown" });
       return;
     }
 
-    const phone = args[1].trim();
-    const apiId = process.env.API_ID;
-    const apiHash = process.env.API_HASH;
+    const phone = args[1].trim().replace(/[^0-9+]/g, '');
+    const statusMsg = await ctx.reply(`⏳ Выполняю кросс-поиск и агрегацию OSINT по номеру <b>${phone}</b>...`, { parse_mode: "HTML" });
 
-    if (!apiId || !apiHash) {
-      await ctx.reply(
-        "🤖 Внутренняя ошибка сервиса: Модуль поиска по номеру не настроен (отсутствуют API ключи Telegram)."
-      );
-      return;
-    }
+    let cleanNumber = phone;
+    if (phone.startsWith("+")) cleanNumber = phone.substring(1);
+    
+    let report = `📱 <b>OSINT Отчет по номеру:</b> <code>${phone}</code>\n\n`;
 
-    await ctx.reply(WARNING_MSG);
-    const statusMsg = await ctx.reply(`⏳ Проверяю телефон <code>${phone}</code> в Telegram...`, {
+    report += `🌎 <b>Мессенджеры (Проверка открытого профиля по ссылке):</b>\n`;
+    report += `└ <a href="https://t.me/+${cleanNumber}">Перейти в Telegram (Чат)</a>\n`;
+    report += `└ <a href="https://wa.me/${cleanNumber}">Перейти в WhatsApp (Чат)</a>\n`;
+    report += `└ <a href="viber://chat?number=${cleanNumber}">Перейти в Viber (Чат)</a>\n\n`;
+
+    report += `👀 <b>Проверка в базах (Определители номеров):</b>\n`;
+    report += `└ <a href="https://numbuster.com/ru/phone/+${cleanNumber}">Проверить теги в NumBuster</a>\n`;
+    report += `└ <a href="https://www.truecaller.com/search/ru/${cleanNumber}">Искать пользователя в TrueCaller</a>\n`;
+    report += `└ <a href="https://getcontact.com">Пробить через GetContact App</a>\n\n`;
+
+    report += `🔍 <b>Продвинутый поиск скрытой информации (Dorks):</b>\n`;
+    report += `└ <a href="https://www.google.com/search?q=%22${phone}%22+OR+%22${cleanNumber}%22">Точный поиск номера в интернете</a>\n`;
+    report += `└ <a href="https://www.google.com/search?q=site:avito.ru+%22${cleanNumber}%22">Поиск объявлений (Avito)</a>\n`;
+    report += `└ <a href="https://www.google.com/search?q=site:auto.ru+%22${cleanNumber}%22">Поиск автомобилей продавца (Auto.ru)</a>\n`;
+    report += `└ <a href="https://www.google.com/search?q=ext:csv+OR+ext:sql+%22${cleanNumber}%22">Поиск логов и утекших баз</a>\n\n`;
+    
+    report += `ℹ️ <i>Бот агрегирует ссылки на легальные OSINT-площадки. Глубинный пробив (СДЭК, Яндекс.Еда) работает через них.</i>`;
+
+    await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, report, {
       parse_mode: "HTML",
+      link_preview_options: { is_disabled: true }
     });
+  };
 
-    try {
-      // In JS, working with user sessions on the fly without saved tokens is tricky, 
-      // we mock the unavailable logic because the bot doesn't have an active user session yet.
-      await ctx.api.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        `🤷‍♂️ Номер телефона требует активной user-сессии. Для полноценной проверки через GramJS необходимо авторизоваться `+
-        `с использованием API_ID и API_HASH (и ввести код подтверждения).\n` +
-        `Пожалуйста, настройте User-Session локально.` + DISCLAIMER_MSG,
-        { parse_mode: "HTML" }
-      );
-    } catch (err: any) {
-      console.error(err);
-      await ctx.api.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        `❌ Ошибка при проверке номера. Возможно, неверный формат. Попробуйте +79XXXXXXXXX.\n<i>Детали: ${err.message}</i>`,
-        { parse_mode: "HTML" }
-      );
-    }
-  });
+  bot.command("search_phone", handler);
+  bot.command("phone", handler);
 }
