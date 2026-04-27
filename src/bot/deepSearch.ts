@@ -29,7 +29,6 @@ async function uploadToTelegraphFromUrl(imgUrl: string): Promise<string | null> 
 }
 
 const SITES = [
-  { name: "GitHub", url: "https://github.com/{}" },
   { name: "Reddit", url: "https://www.reddit.com/user/{}" },
   { name: "YouTube", url: "https://www.youtube.com/@{}" },
   { name: "VK", url: "https://vk.com/{}" },
@@ -42,32 +41,34 @@ const SITES = [
   { name: "Medium", url: "https://medium.com/@{}" },
   { name: "Vimeo", url: "https://vimeo.com/{}" },
   { name: "Keybase", url: "https://keybase.io/{}" },
-  { name: "Pinterest", url: "https://www.pinterest.com/{}/" }
+  { name: "Pinterest", url: "https://www.pinterest.com/{}/" },
+  { name: "Pikabu", url: "https://pikabu.ru/@{}" },
 ];
 
 export function setupDeepSearch(bot: Bot) {
   bot.command("deep", async (ctx) => {
     const args = (ctx.message?.text || "").split(/\s+/);
     if (args.length < 2) {
-      await ctx.reply("Использование: `/deep <никнейм>` - полный легальный сбор инфы (Tg, GitHub, соцсети, фото)", { parse_mode: "Markdown" });
+      await ctx.reply("Использование: `/deep <никнейм>` - полный легальный сбор инфы (Tg, API, соцсети, фото)", { parse_mode: "Markdown" });
       return;
     }
 
     const nickname = args[1].trim();
-    const statusMsg = await ctx.reply(`⏳ Начинаю глубокий сбор данных по <b>${nickname}</b>...\n<i>Это может занять 10-15 секунд, так как бот парсит множество сайтов и фото.</i>`, { parse_mode: "HTML" });
+    const statusMsg = await ctx.reply(`⏳ Начинаю глубокий сбор данных по <b>${nickname}</b>...\n<i>Это может занять ~15 секунд. Парсим публичные API, Telegram, соцсети и аватары.</i>`, { parse_mode: "HTML" });
 
     let report = `🕵️‍♂️ <b>Глубокий анализ по нику:</b> <code>${nickname}</code>\n\n`;
 
-    // 1. Telegram Web parse (The Only 100% legal way without bot being blocked by user privacy)
+    // 1. Telegram Web parse
     let tgPhotoUrl = null;
-    let tgBio = null;
     try {
-        const tgRes = await fetch(`https://t.me/${nickname}`);
+        const tgRes = await fetch(`https://t.me/${nickname}`, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0" }
+        });
         if (tgRes.status === 200) {
             const tgHtml = await tgRes.text();
             const $ = cheerio.load(tgHtml);
             const tgName = $(".tgme_page_title").text().trim();
-            tgBio = $(".tgme_page_description").text().trim();
+            const tgBio = $(".tgme_page_description").text().trim();
             const photoEl = $(".tgme_page_photo_image").attr('src');
             
             if (tgName || tgBio) {
@@ -78,39 +79,90 @@ export function setupDeepSearch(bot: Bot) {
                     // Parse Phones from bio
                     const phones = tgBio.match(/(?:\+|\d)[\d\-\(\) ]{9,16}\d/g);
                     if (phones) {
-                        report += `📞 <b>Найдены телефоны в био:</b> <code>${phones.join(", ")}</code>\n`;
-                    } else {
-                        report += `📞 <b>Телефон:</b> <i>Скрыт настройками или отсутствует (легально недоступен)</i>\n`;
+                        report += `📞 <b>Найдены телефоны в био:</b> <code>${phones.map(p=>p.trim()).join(", ")}</code>\n`;
                     }
-                    // Parse secondary usernames
+                    // Parse links / other nicks
                     const otherNicks = tgBio.match(/@[a-zA-Z0-9_]+/g);
                     if (otherNicks) {
                         const filtered = otherNicks.filter(n => n.toLowerCase() !== `@${nickname.toLowerCase()}`);
-                        if (filtered.length > 0) {
-                            report += `👥 <b>Связанные аккаунты из био:</b> ${filtered.join(", ")}\n`;
-                        }
+                        if (filtered.length > 0) report += `👥 <b>Упоминания аккаунтов:</b> ${filtered.join(", ")}\n`;
+                    }
+                    const links = tgBio.match(/https?:\/\/[^\s]+/g);
+                    if (links) {
+                        report += `🔗 <b>Ссылки в био:</b> ${links.join(" ")}\n`;
                     }
                 }
                 
                 if (photoEl && !photoEl.includes('default')) {
                     tgPhotoUrl = photoEl;
-                    report += `🖼 <b>Аватарка:</b> Найдена! (готовится обратный поиск...)\n`;
+                    report += `🖼 <b>Аватарка:</b> Найдена (сохранена для обратного поиска)\n`;
                 }
                 report += `\n`;
             } else {
-                report += `✈️ <i>Telegram аккаунт не найден или полностью пуст.</i>\n\n`;
+                report += `✈️ <i>Telegram аккаунт не найден (или нет публичного имени/био).</i>\n\n`;
             }
         }
     } catch (e) {
         console.error("TG scrape failed", e);
     }
 
-    // 2. Search other sites concurrently and parse deep info if possible
-    report += `🌍 <b>Присутствие на других платформах:</b>\n`;
+    // 2. Open APIs Data Extraction (GitHub, Chess.com, HackerNews)
+    report += `📡 <b>Публичные базы и API:</b>\n`;
+    let apiHits = 0;
     
-    const headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/115.0.0.0 Safari/537.36"
-    };
+    // GitHub API
+    try {
+        const ghRes = await fetch(`https://api.github.com/users/${nickname}`, { headers: { "User-Agent": "OSINT-Bot" }});
+        if (ghRes.status === 200) {
+            const ghData: any = await ghRes.json();
+            report += `✅ <b>GitHub</b>:\n`;
+            if (ghData.name) report += `  ├ 👤 Имя: ${ghData.name}\n`;
+            if (ghData.company) report += `  ├ 🏢 Компания: ${ghData.company}\n`;
+            if (ghData.blog) report += `  ├ 🔗 Сайт: ${ghData.blog}\n`;
+            if (ghData.location) report += `  ├ 📍 Локация: ${ghData.location}\n`;
+            if (ghData.email) report += `  ├ 📧 Email: ${ghData.email}\n`;
+            if (ghData.twitter_username) report += `  ├ 🐦 Twitter: @${ghData.twitter_username}\n`;
+            if (ghData.bio) report += `  └ 📝 Био: ${ghData.bio.replace(/\n/g, " ")}\n`;
+            apiHits++;
+            
+            if (!tgPhotoUrl && ghData.avatar_url) {
+                tgPhotoUrl = ghData.avatar_url; // Use GH avatar for reverse search if none from TG
+            }
+        }
+    } catch (e) {}
+
+    // Chess.com API
+    try {
+        const chessRes = await fetch(`https://api.chess.com/pub/player/${nickname}`, { headers: { "User-Agent": "OSINT-Bot" }});
+        if (chessRes.status === 200) {
+            const chessData: any = await chessRes.json();
+            report += `✅ <b>Chess.com</b>:\n`;
+            if (chessData.name) report += `  ├ 👤 Имя: ${chessData.name}\n`;
+            if (chessData.location) report += `  └ 📍 Локация: ${chessData.location}\n`;
+            apiHits++;
+        }
+    } catch (e) {}
+
+    // HackerNews
+    try {
+        const hnRes = await fetch(`https://hacker-news.firebaseio.com/v0/user/${nickname}.json`);
+        if (hnRes.status === 200) {
+            const hnData: any = await hnRes.json();
+            if (hnData && hnData.created) {
+                report += `✅ <b>HackerNews</b>:\n`;
+                report += `  ├ 📅 Дата регистрации: ${new Date(hnData.created * 1000).toLocaleDateString()}\n`;
+                report += `  └ ⭐️ Карма: ${hnData.karma}\n`;
+                apiHits++;
+            }
+        }
+    } catch (e) {}
+    
+    if (apiHits === 0) report += `<i>В базах разработчиков/игроков профиль не найден.</i>\n`;
+    report += `\n`;
+
+    // 3. Search other sites concurrently via HTML scrape
+    report += `🌍 <b>Обычные сайты и платформы:</b>\n`;
+    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/115.0.0.0 Safari/537.36" };
 
     const sitePromises = SITES.map(async site => {
        const url = site.url.replace("{}", nickname);
@@ -121,36 +173,10 @@ export function setupDeepSearch(bot: Bot) {
           clearTimeout(timeout);
           if (res.status === 200) {
              const html = await res.text();
-             const $ = cheerio.load(html);
-             const title = $("title").text().trim().toLowerCase();
+             const title = cheerio.load(html)("title").text().trim().toLowerCase();
              
-             // Soft 404 filtering
-             if (!["not found", "404", "ошибка", "does not exist", "suspended"].some(m => title.includes(m))) {
-                let siteInfo = `✅ <a href="${url}">${site.name}</a>`;
-                
-                // Deep extraction for specific targets like GitHub
-                if (site.name === "GitHub") {
-                    const ghName = $("span.p-name").text().trim();
-                    const ghBio = $("div.p-note").text().trim();
-                    const ghLoc = $("span.p-label").first().text().trim(); // Rough approx for location
-                    let extra = [];
-                    if (ghName) extra.push(`Имя: ${ghName}`);
-                    if (ghLoc) extra.push(`Локация: ${ghLoc}`);
-                    if (ghBio) extra.push(`О себе: ${ghBio.substring(0, 50)}...`);
-                    if (extra.length > 0) {
-                        siteInfo += `\n    └ 📝 <i>${extra.join(" | ")}</i>`;
-                    }
-                }
-                
-                // Deep extraction for Reddit
-                if (site.name === "Reddit") {
-                    const rdDesc = $("div").filter((i, el) => $(el).text().includes("Karma")).first().text().trim();
-                    if (rdDesc && rdDesc.length < 100) { // arbitrary bound
-                       siteInfo += `\n    └ 📝 <i>Активен, профиль найдено</i>`;
-                    }
-                }
-
-                return siteInfo;
+             if (!["not found", "404", "ошибка", "does not exist", "suspended", "page unavail"].some(m => title.includes(m))) {
+                return `🔹 <a href="${url}">${site.name}</a>`;
              }
           }
        } catch (e) {}
@@ -162,25 +188,34 @@ export function setupDeepSearch(bot: Bot) {
     if (validSites.length > 0) {
         report += validSites.join("\n") + "\n\n";
     } else {
-        report += `<i>Не найдено (или закрыто настройками приватности).</i>\n\n`;
+        report += `<i>Не найдено или скрыто страницами 404.</i>\n\n`;
     }
 
-    // 3. Photo Reverse Search
+    // 4. Photo Reverse Search
     if (tgPhotoUrl) {
        report += `🔍 <b>Обратный поиск по аватару:</b>\n`;
        const telegraPhUrl = await uploadToTelegraphFromUrl(tgPhotoUrl);
        if (telegraPhUrl) {
            const enc = encodeURIComponent(telegraPhUrl);
-           report += `🔗 <a href="https://lens.google.com/uploadbyurl?url=${enc}">Искать в Google Lens</a>\n`;
-           report += `🔗 <a href="https://yandex.ru/images/search?rpt=imageview&url=${enc}">Искать в Яндекс Картинках</a>\n`;
+           report += `🔗 <a href="https://lens.google.com/uploadbyurl?url=${enc}">Искать лицо в Google Lens</a>\n`;
+           report += `🔗 <a href="https://yandex.ru/images/search?rpt=imageview&url=${enc}">Искать лицо в Яндекс.Картинках</a>\n`;
        } else {
-           report += `<i>Не удалось обработать аватар для обратного поиска.</i>\n`;
+           report += `<i>Не удалось загрузить аватар для генерации ссылок.</i>\n`;
        }
     }
 
-    await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, report + DISCLAIMER_MSG, {
-        parse_mode: "HTML",
-        link_preview_options: { is_disabled: true },
-    });
+    try {
+        await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, report + DISCLAIMER_MSG, {
+            parse_mode: "HTML",
+            link_preview_options: { is_disabled: true },
+        });
+    } catch(e) {
+        // If message is too long, we split or just fallback
+        await ctx.reply(report + DISCLAIMER_MSG, {
+            parse_mode: "HTML",
+            link_preview_options: { is_disabled: true }
+        });
+    }
   });
 }
+
