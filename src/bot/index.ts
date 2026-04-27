@@ -1,13 +1,7 @@
 import { Bot } from "grammy";
-import { setupNickSearch } from "./nickSearch.js";
-import { setupPhoneSearch } from "./phoneSearch.js";
-import { setupPhotoSearch } from "./photoSearch.js";
-import { setupDeepSearch } from "./deepSearch.js";
-import { setupIpSearch } from "./ipSearch.js";
+import { setupGodSearch } from "./godSearch.js";
 import { setupIpLogger } from "./ipLogger.js";
-import { setupEmailSearch } from "./emailSearch.js";
-import { setupDomainSearch } from "./domainSearch.js";
-import { setupCryptoSearch } from "./cryptoSearch.js";
+import { setupPhotoSearch } from "./photoSearch.js"; // Kept because uploading an image requires separate handling
 
 export async function setupBot() {
   const token = process.env.BOT_TOKEN || "8597293888:AAGllUMlZCPYOjcy6BkHJTJLd3cEivVKW08"; 
@@ -20,32 +14,24 @@ export async function setupBot() {
 
   bot.command("start", async (ctx) => {
     const welcome = `👁 <b>ПРОФЕССИОНАЛЬНЫЙ OSINT ИНСТРУМЕНТ</b> 👁\n\n` +
-      `Главный пульт управления:\n\n` +
-      `👤 <b>СОЦИАЛЬНАЯ РАЗВЕДКА</b>\n` +
-      `├ /deep <никнейм>  — Многопоточный анализ (Все платформы)\n` +
-      `├ /email <адрес>   — Проверка почты (Утечки, базы, dorks)\n` +
-      `├ /phone <номер>   — Теневой анализ номера (Теги, соцсети)\n` +
-      `└ /search_nick     — Быстрый чек ника (Лайт-версия)\n\n` +
-      `🌐 <b>СЕТЬ И АППАРАТУРА</b>\n` +
-      `├ /ip <адрес>      — Геолокация, провайдер, VPN детект\n` +
-      `├ /iplogger        — Создать ловушку (Скрытый сбор данных о девайсе)\n` +
-      `└ /domain <домен>  — Whois, Архивы, Файлы сайта\n\n` +
-      `💰 <b>ФИНАНСЫ И ПОИСК</b>\n` +
-      `├ /crypto <адрес>   — Анализ BTC/ETH транзакций на Даркнет\n` +
-      `└ /search_photo     — Обратный поиск по лицу (FR, веб)\n\n` +
-      `⚠️ <b>Важно:</b> Бот использует огромный арсенал OSINT Dorks и API агрегаторов, предоставляя самую глубокую информацию в открытом доступе.`;
+      `Я — умная поисковая аналитическая система.\n\n` +
+      `<b>КАК ПОЛЬЗОВАТЬСЯ:</b>\n` +
+      `Просто отправьте мне <b>любые данные</b> текстом, и я найду всё что смогу:\n\n` +
+      `👤 <b>Никнейм</b> (поиск по соцсетям, базам, github, tg)\n` +
+      `📱 <b>Номер телефона</b> (авито, мессенджеры, теги)\n` +
+      `📧 <b>Email</b> (базы утечек, дорк-скан)\n` +
+      `🌐 <b>IP / Домен</b> (гео, провайдер, DNS, порты)\n` +
+      `💰 <b>Криптокошелек</b> (BTC/ETH транзакции, графы)\n\n` +
+      `Помимо этого, у меня есть особые утилиты:\n` +
+      `├ /iplogger — Создать ссылку-ловушку для фиксации IP!\n` +
+      `└ /search_photo — Обратный поиск по лицу/аватарке\n\n` +
+      `Напишите мне любой запрос прямо сейчас:`;
     await ctx.reply(welcome, { parse_mode: "HTML" });
   });
 
-  setupNickSearch(bot);
-  setupPhoneSearch(bot);
-  setupPhotoSearch(bot);
-  setupDeepSearch(bot);
-  setupIpSearch(bot);
+  setupGodSearch(bot);
   setupIpLogger(bot);
-  setupEmailSearch(bot);
-  setupDomainSearch(bot);
-  setupCryptoSearch(bot);
+  setupPhotoSearch(bot);
 
   bot.catch((err) => {
     console.error("Error in bot:", err);
@@ -55,13 +41,8 @@ export async function setupBot() {
   
   await bot.api.setMyCommands([
     { command: "start", description: "Запустить / Главное меню" },
-    { command: "deep", description: "🔍 Мощный сбор по никнейму" },
-    { command: "phone", description: "📱 Анализ номера телефона" },
-    { command: "email", description: "📧 Поиск по email почте" },
-    { command: "ip", description: "🌐 Пробить IP адрес" },
-    { command: "iplogger", description: "🔗 Создать ссылку-ловушку" },
-    { command: "crypto", description: "💰 Транзакции блокчейна" },
-    { command: "domain", description: "🌍 Анализ домена/сайта" },
+    { command: "search", description: "🔍 Универсальный мощный поиск (или просто пишите текст)" },
+    { command: "iplogger", description: "🔗 Создать ссылку-ловушку для IP" },
     { command: "search_photo", description: "🖼 Обратный поиск по фото" },
   ]);
 
@@ -72,7 +53,8 @@ export async function setupBot() {
   const ownerId = process.env.OWNER_ID;
   if (ownerId && !isNaN(Number(ownerId))) {
     try {
-        await bot.api.sendMessage(ownerId, "✅ Бот успешно запущен!\nВсе OSINT-модули готовы к работе.");
+        await bot.api.sendMessage(ownerId, "✅ Бот успешно запущен!\nOSINT-модули готовы к работе.");
     } catch(e) {}
   }
 }
+
