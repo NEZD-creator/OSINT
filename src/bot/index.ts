@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import { setupNickSearch } from "./nickSearch.js";
 import { setupPhoneSearch } from "./phoneSearch.js";
 import { setupPhotoSearch } from "./photoSearch.js";
+import { setupDeepSearch } from "./deepSearch.js";
 
 // Uses bot token from user prompt or environment logic
 export async function setupBot() {
@@ -16,6 +17,7 @@ export async function setupBot() {
   bot.command("start", async (ctx) => {
     const welcome = `Привет! Я OSINT-бот для исследования цифрового следа.\n\n` +
       `Доступные команды:\n` +
+      `🕵️‍♂️ /deep <никнейм> — Глубокий легальный сбор (Tg, платформы, фото)\n` +
       `👤 /search_nick <никнейм> — поиск по открытым профилям\n` +
       `📱 /search_phone <телефон> — публичная инфо в Telegram\n` +
       `🖼 /search_photo — обратный поиск по лицу/фото\n\n` +
@@ -26,6 +28,7 @@ export async function setupBot() {
   setupNickSearch(bot);
   setupPhoneSearch(bot);
   setupPhotoSearch(bot);
+  setupDeepSearch(bot);
 
   // Error handler
   bot.catch((err) => {
@@ -37,6 +40,7 @@ export async function setupBot() {
   // Set bot commands to show up in the menu
   await bot.api.setMyCommands([
     { command: "start", description: "Запустить / перезапустить бота" },
+    { command: "deep", description: "Глубокий анализ по никнейму" },
     { command: "search_nick", description: "Поиск по никнейму (открытые профили)" },
     { command: "search_phone", description: "Поиск по номеру (Telegram)" },
     { command: "search_photo", description: "Обратный поиск по фото" },

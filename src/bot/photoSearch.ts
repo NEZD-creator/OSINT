@@ -2,12 +2,11 @@ import { Bot, Context } from "grammy";
 import FormData from "form-data";
 
 const WARNING_MSG =
-  "⚠️ Бот использует только открытые источники (Google/Yandex). Продолжая, вы подтверждаете, что " +
+  "⚠️ Бот использует только открытые источники. Продолжая, вы подтверждаете, что " +
   "имеете право искать объекты/людей на этом фото (исследование цифрового следа) и не нарушаете закон.";
 
 const DISCLAIMER_MSG =
-  "\n\nℹ️ <i>Поиск осуществляется через публичные поисковые системы алгоритмами Content-Based Image Retrieval. " +
-  "Мы не храним переданные фотографии (обработка в ОЗУ).</i>";
+  "\n\nℹ️ <i>Мы не храним переданные фотографии (обработка в ОЗУ). Прямые ссылки сгенерированы для безопасного поиска через ваш браузер.</i>";
 
 // Simple in-memory state (instead of full FSM plugin to keep dependencies light)
 const userStates = new Map<number, string>();
@@ -20,38 +19,28 @@ async function waitAndGetPhoto(ctx: Context, fileId: string) {
     return res.arrayBuffer();
 }
 
-async function searchYandex(imageBuffer: ArrayBuffer) {
+async function uploadToTelegraph(imageBuffer: ArrayBuffer) {
   try {
-    const url = "https://yandex.ru/images/search?rpt=imageview&format=json&request=%7B%22blocks%22%3A%5B%7B%22block%22%3A%22b-page_type_search-by-image__link%22%7D%5D%7D";
-    
-    // Create form-data payload using node-fetch/form-data rules
     const form = new FormData();
-    form.append("upfile", Buffer.from(imageBuffer), {
+    form.append("file", Buffer.from(imageBuffer), {
       filename: "image.jpg",
       contentType: "image/jpeg",
     });
 
-    const response = await fetch(url, {
+    const response = await fetch("https://telegra.ph/upload", {
       method: "POST",
       body: form as any,
-      headers: {
-         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-      }
     });
 
     if (response.status === 200) {
       const data: any = await response.json();
-      const blocks = data?.blocks || [];
-      const params = blocks[0]?.params || {};
-      const cbirId = params?.url;
-
-      if (cbirId) {
-        return `https://yandex.ru/images/search?rpt=imageview&url=${cbirId}`;
+      if (data && data[0] && data[0].src) {
+        return `https://telegra.ph${data[0].src}`;
       }
     }
     return null;
   } catch (err) {
-    console.error("Yandex Request Failed:", err);
+    console.error("Telegraph Upload Failed:", err);
     return null;
   }
 }
@@ -76,23 +65,24 @@ export function setupPhotoSearch(bot: Bot) {
     userStates.delete(userId);
     
     await ctx.reply(WARNING_MSG);
-    const statusMsg = await ctx.reply("⏳ Загружаю фотографию в оперативную память и отправляю запрос в поисковик...");
+    const statusMsg = await ctx.reply("⏳ Загружаю фотографию во временное хранилище (Telegraph) для генерации ссылок...");
 
     try {
       const photos = ctx.message.photo;
       const largestPhoto = photos[photos.length - 1]; // get highest res photo
       
       const buffer = await waitAndGetPhoto(ctx, largestPhoto.file_id);
-      const searchUrl = await searchYandex(buffer);
+      const publicUrl = await uploadToTelegraph(buffer);
 
       let text = "";
-      if (searchUrl) {
-        text = `✅ <b>Обратный поиск по изображению завершен</b>\n\n` +
-               `Ссылка на результаты в Яндекс.Картинках (найденные лица, веб-страницы, совпадения):\n` +
-               `🔗 <a href='${searchUrl}'>Перейти к результатам поиска</a>\n\n` +
-               `<i>Рекомендуется открыть ссылку с браузера для детального анализа найденных страниц.</i>`;
+      if (publicUrl) {
+        const enc = encodeURIComponent(publicUrl);
+        text = `✅ <b>Фотография успешно обработана</b>\n\n` +
+               `Поисковики блокируют автоматические запросы от ботов (поэтому Яндекс выдавал ошибку). Бот сгенерировал прямые ссылки, откройте их в браузере:\n\n` +
+               `🔗 <a href="https://lens.google.com/uploadbyurl?url=${enc}">Поиск в Google Lens</a>\n` +
+               `🔗 <a href="https://yandex.ru/images/search?rpt=imageview&url=${enc}">Поиск в Яндекс.Картинках</a>`;
       } else {
-        text = "❌ К сожалению, поисковик отклонил запрос или не вернул результатов.";
+        text = "❌ К сожалению, не удалось загрузить фото для обратного поиска.";
       }
 
       await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, text + DISCLAIMER_MSG, {
@@ -106,3 +96,4 @@ export function setupPhotoSearch(bot: Bot) {
     }
   });
 }
+
