@@ -21,7 +21,7 @@ async function startServer() {
   const token = process.env.BOT_TOKEN || "8597293888:AAGllUMlZCPYOjcy6BkHJTJLd3cEivVKW08"; 
   const botAlert = new Bot(token);
 
-  app.get("/l/:id", async (req, res) => {
+  app.get("/api/l/:id", async (req, res) => {
     const chatId = req.params.id;
     let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
     if (Array.isArray(ip)) ip = ip[0];
