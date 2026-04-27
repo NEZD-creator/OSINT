@@ -34,6 +34,14 @@ export async function setupBot() {
 
   console.log("Starting Telegram Bot (Polling)...");
   
+  // Set bot commands to show up in the menu
+  await bot.api.setMyCommands([
+    { command: "start", description: "Запустить / перезапустить бота" },
+    { command: "search_nick", description: "Поиск по никнейму (открытые профили)" },
+    { command: "search_phone", description: "Поиск по номеру (Telegram)" },
+    { command: "search_photo", description: "Обратный поиск по фото" },
+  ]);
+
   // Use non-blocking start
   bot.start({
     drop_pending_updates: true,
